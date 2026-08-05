@@ -15,8 +15,9 @@ services:
       - clickhouse
     restart: unless-stopped
 
-  # Schema is empty until v0.2 migrations exist — included now so the
-  # full local stack is one command from here on, per the implementation plan.
+  # Schema is created via migrations (app/db/migrations/), applied by
+  # running `python -m app.db.run_migrations` against this container —
+  # see README for the exact docker compose exec command.
   clickhouse:
     image: clickhouse/clickhouse-server:24.3
     ports:
@@ -24,6 +25,8 @@ services:
       - "9000:9000"  # native client interface
     environment:
       - CLICKHOUSE_DB=ad_analytics
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}                 
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     restart: unless-stopped
