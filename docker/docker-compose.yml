@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    environment:
+      - ENVIRONMENT=local
+    depends_on:
+      - clickhouse
+    restart: unless-stopped
+
+  # Schema is empty until v0.2 migrations exist — included now so the
+  # full local stack is one command from here on, per the implementation plan.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # native client interface
+    environment:
+      - CLICKHOUSE_DB=ad_analytics
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
