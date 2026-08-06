@@ -30,12 +30,18 @@ def chdb_client():
 
 def test_all_migrations_apply_cleanly(chdb_client):
     applied = run_migrations(chdb_client, MIGRATIONS_DIR)
-    assert applied == ["0001_create_raw_events", "0002_create_dedup_view", "0003_create_spend_agg"]
+    assert applied == [
+        "0001_create_raw_events",
+        "0002_create_dedup_view",
+        "0003_create_spend_agg",
+        "0004_fix_spend_agg_version_column",
+        "0005_create_spend_latest_view",
+    ]
 
 
 def test_migrations_are_idempotent(chdb_client):
     first_run = run_migrations(chdb_client, MIGRATIONS_DIR)
-    assert len(first_run) == 3
+    assert len(first_run) == 5
 
     second_run = run_migrations(chdb_client, MIGRATIONS_DIR)
     assert second_run == []  # nothing pending — this is what makes rerunning safe on every deploy

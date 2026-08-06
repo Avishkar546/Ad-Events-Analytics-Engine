@@ -60,8 +60,13 @@ def run_migrations(client: ClickHouseClientProtocol, migrations_dir: Path) -> li
 
     newly_applied = []
     for migration_file in pending:
-        sql = migration_file.read_text()
-        client.command(sql)
+        sql_content = migration_file.read_text()
+
+        statements = [stmt.strip() for stmt in sql_content.split(';') if stmt.strip()]
+
+        # Execute each individual statement found in the migration file
+        for statement in statements:
+            client.command(statement)
         client.command(
             f"INSERT INTO {MIGRATIONS_TABLE} (version) VALUES ('{migration_file.stem}')"
         )

@@ -4,11 +4,36 @@ Duplicate- and late-event-safe ad analytics pipeline, inspired by Zepto's
 "A Billion Events a Day" ads analytics architecture. Full design docs in
 `docs/ad-analytics-prd-techspec.md` and `docs/ad-analytics-implementation-plan.md`.
 
-**Status: v0.4 — event generator.** `app/generator/event_simulator.py`
-produces synthetic traffic and sends it as REAL HTTP requests to a running
-`/events/ingest` endpoint, with independently-controllable duplicate and
-late-arrival rates. This is what v0.5's aggregation job will be tested
-against.
+**Status: v0.5 — the aggregation worker. This is the core correctness
+claim of the whole project.** `app/workers/aggregation_job.py` runs
+`app/services/aggregation_service.py` hourly via APScheduler: for every
+advertiser with recent activity, it dedupes their events, buckets them by
+*event* time (not arrival time), and overwrites the affected windows in
+`ad_spend_5min`. Proven correct in `tests/test_aggregation_service.py`
+against real ClickHouse SQL — duplicates don't get double-counted, late
+events land in their true historical window, and reruns don't double totals.
+
+**Bug fixed this version:** `ad_spend_5min`'s original engine
+(`ReplacingMergeTree(window_start)`) couldn't actually dedupe reruns —
+see migration `0004` for why, and `ad_spend_5min_latest` (migration `0005`)
+for the read-time fix, same pattern as `ad_events_deduped`.
+
+## Run the worker
+
+```bash
+docker compose -f docker/docker-compose.yml up --build -d
+docker compose -f docker/docker-compose.yml exec api python -m app.db.run_migrations
+# worker starts automatically as its own service and runs immediately, then hourly
+docker compose -f docker/docker-compose.yml logs -f worker
+```
+
+To see it do real work: generate some traffic (v0.4), then check the logs
+for `Aggregation run complete: N advertiser(s) processed`, then query
+ClickHouse directly:
+
+```sql
+SELECT advertiser_id, sum(spend) FROM ad_spend_5min_latest GROUP BY advertiser_id;
+```
 
 ## Generate traffic against your running stack
 
@@ -20,15 +45,6 @@ pip install -r requirements-dev.txt
 python -m app.generator.event_simulator \
   --url http://localhost:8000/events/ingest \
   --count 200 --duplicate-rate 0.1 --late-rate 0.2
-```
-
-It prints a summary with ground-truth counts (how many logical events, how
-many were sent as duplicates, how many were backdated) and the exact
-ClickHouse queries to run to verify the server's behavior matches:
-
-```sql
-SELECT count() FROM ad_events_raw;                  -- ≈ total requests sent
-SELECT count(DISTINCT event_id) FROM ad_events_raw;  -- ≈ logical events generated
 ```
 
 ## Run locally (without Docker)
@@ -74,7 +90,4 @@ schema and the dedup logic without needing Docker or a live server for CI.
 ## Roadmap
 
 See `docs/ad-analytics-implementation-plan.md` for the full v0.1–v0.9 plan.
-Next up: **v0.5 — the aggregation worker.** This is the core correctness
-claim of the whole project: run the generator with known duplicate/late
-rates, run the aggregation job, and prove `ad_spend_5min` matches
-hand-calculated expected totals.
+Next up: **v0.6 — the query API**, reading only from `ad_spend_5min_latest`.
