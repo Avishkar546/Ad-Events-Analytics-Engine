@@ -26,3 +26,23 @@ class ChdbTestClient:
 
         parsed = json.loads(result.bytes())
         return _QueryResult(result_rows=parsed.get("data", []))
+
+    def insert(self, table: str, data: list, column_names: list[str]) -> None:
+        # Mimics clickhouse_connect's insert() signature so ingest_service.py
+        # can be tested unmodified against chdb instead of a live server.
+        columns = ", ".join(column_names)
+        value_rows = []
+        for row in data:
+            formatted = ", ".join(_sql_literal(v) for v in row)
+            value_rows.append(f"({formatted})")
+        sql = f"INSERT INTO {table} ({columns}) VALUES {', '.join(value_rows)}"
+        self._session.query(sql)
+
+
+def _sql_literal(value) -> str:
+    if isinstance(value, str):
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+    if hasattr(value, "isoformat"):  # datetime
+        return f"'{value.isoformat(sep=' ')}'"
+    return str(value)
