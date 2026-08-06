@@ -4,31 +4,32 @@ Duplicate- and late-event-safe ad analytics pipeline, inspired by Zepto's
 "A Billion Events a Day" ads analytics architecture. Full design docs in
 `docs/ad-analytics-prd-techspec.md` and `docs/ad-analytics-implementation-plan.md`.
 
-**Status: v0.3 — ingest endpoint.** `POST /events/ingest` accepts a single
-ad event, validates it, and writes it to `ad_events_raw`. Deliberately does
-**not** dedup at this layer — duplicates are expected to land in raw
-storage; dedup happens at read time (`ad_events_deduped`) or aggregation
-(v0.5). Query endpoints still don't exist — that's v0.6.
+**Status: v0.4 — event generator.** `app/generator/event_simulator.py`
+produces synthetic traffic and sends it as REAL HTTP requests to a running
+`/events/ingest` endpoint, with independently-controllable duplicate and
+late-arrival rates. This is what v0.5's aggregation job will be tested
+against.
 
-## Try it
+## Generate traffic against your running stack
+
+Requires `requirements-dev.txt` installed locally (the generator is a
+dev/demo tool — it's not part of the API's Docker image).
 
 ```bash
-curl -X POST http://localhost:8000/events/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-        "event_id": "11111111-1111-1111-1111-111111111111",
-        "event_type": "click",
-        "advertiser_id": 1,
-        "campaign_id": 1,
-        "category": "grocery",
-        "device": "mobile",
-        "cost": "2.5000",
-        "event_timestamp": "2026-08-05T10:00:00Z"
-      }'
+pip install -r requirements-dev.txt
+python -m app.generator.event_simulator \
+  --url http://localhost:8000/events/ingest \
+  --count 200 --duplicate-rate 0.1 --late-rate 0.2
 ```
 
-Posting the exact same `event_id` twice is expected to succeed both times
-— that's the point. Check `docs/` for why.
+It prints a summary with ground-truth counts (how many logical events, how
+many were sent as duplicates, how many were backdated) and the exact
+ClickHouse queries to run to verify the server's behavior matches:
+
+```sql
+SELECT count() FROM ad_events_raw;                  -- ≈ total requests sent
+SELECT count(DISTINCT event_id) FROM ad_events_raw;  -- ≈ logical events generated
+```
 
 ## Run locally (without Docker)
 
@@ -73,4 +74,7 @@ schema and the dedup logic without needing Docker or a live server for CI.
 ## Roadmap
 
 See `docs/ad-analytics-implementation-plan.md` for the full v0.1–v0.9 plan.
-Next up: **v0.4 — event generator (synthetic traffic with duplicate/late-arrival controls).**
+Next up: **v0.5 — the aggregation worker.** This is the core correctness
+claim of the whole project: run the generator with known duplicate/late
+rates, run the aggregation job, and prove `ad_spend_5min` matches
+hand-calculated expected totals.
