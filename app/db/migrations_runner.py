@@ -46,6 +46,27 @@ def _pending_migrations(migrations_dir: Path, applied: set[str]) -> list[Path]:
     return [f for f in all_files if f.stem not in applied]
 
 
+def _split_statements(sql: str) -> list[str]:
+    """
+    ClickHouse's HTTP interface (what clickhouse-connect uses) rejects
+    multiple semicolon-separated statements in a single query — unlike
+    chdb, which silently allows it. Splitting here means each migration
+    file can contain more than one statement (e.g. DROP + CREATE) without
+    every migration author needing to remember this constraint.
+
+    Strips `--` comment lines BEFORE splitting on ';' — otherwise an
+    ordinary semicolon in English prose inside a comment (e.g. "note: X;
+    also Y") gets mistaken for a statement terminator. This is a real bug
+    that was caught in this project: see git history for the fix and the
+    migration file that triggered it.
+    """
+    without_comments = "\n".join(
+        line for line in sql.splitlines() if not line.strip().startswith("--")
+    )
+    statements = [s.strip() for s in without_comments.split(";")]
+    return [s for s in statements if s]
+
+
 def run_migrations(client: ClickHouseClientProtocol, migrations_dir: Path) -> list[str]:
     """
     Applies all pending .sql files in migrations_dir, in filename order.
@@ -61,7 +82,8 @@ def run_migrations(client: ClickHouseClientProtocol, migrations_dir: Path) -> li
     newly_applied = []
     for migration_file in pending:
         sql = migration_file.read_text()
-        client.command(sql)
+        for statement in _split_statements(sql):
+            client.command(statement)
         client.command(
             f"INSERT INTO {MIGRATIONS_TABLE} (version) VALUES ('{migration_file.stem}')"
         )
