@@ -5,20 +5,11 @@ event, (2) buckets a late-arriving event into the correct historical
 window rather than "now", and (3) is safe to rerun without double-counting.
 Runs against real ClickHouse SQL via chdb — not mocks.
 """
-import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from pathlib import Path
 
-import pytest
-from chdb import session
-
-from app.db.migrations_runner import run_migrations
 from app.services.aggregation_service import run_aggregation_job
-from tests.chdb_test_client import ChdbTestClient
-
-MIGRATIONS_DIR = Path(__file__).parent.parent / "app" / "db" / "migrations"
 
 ADVERTISER_ID = 1
 CAMPAIGN_ID = 1
@@ -26,19 +17,6 @@ CAMPAIGN_ID = 1
 
 def _fmt(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d %H:%M:%S")
-
-
-@pytest.fixture
-def chdb_client():
-    state_path = f"/tmp/chdb_test_{uuid.uuid4().hex}"
-    sess = session.Session(state_path)
-    sess.query("CREATE DATABASE IF NOT EXISTS ad_analytics")
-    sess.query("USE ad_analytics")
-    client = ChdbTestClient(sess)
-    run_migrations(client, MIGRATIONS_DIR)
-    yield client
-    sess.close()
-    shutil.rmtree(state_path, ignore_errors=True)
 
 
 def _insert_raw_event(client, event_id, event_type, cost, event_timestamp, ingested_at):

@@ -1,31 +1,9 @@
-import shutil
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from pathlib import Path
 
-import pytest
-from chdb import session
-
-from app.db.migrations_runner import run_migrations
 from app.models.event import AdEvent, Device, EventType
 from app.services.ingest_service import insert_event
-from tests.chdb_test_client import ChdbTestClient
-
-MIGRATIONS_DIR = Path(__file__).parent.parent / "app" / "db" / "migrations"
-
-
-@pytest.fixture
-def chdb_client():
-    state_path = f"/tmp/chdb_test_{uuid.uuid4().hex}"
-    sess = session.Session(state_path)
-    sess.query("CREATE DATABASE IF NOT EXISTS ad_analytics")
-    sess.query("USE ad_analytics")
-    client = ChdbTestClient(sess)
-    run_migrations(client, MIGRATIONS_DIR)
-    yield client
-    sess.close()
-    shutil.rmtree(state_path, ignore_errors=True)
 
 
 def _sample_event(**overrides) -> AdEvent:
