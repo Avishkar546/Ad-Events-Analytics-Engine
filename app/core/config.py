@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     clickhouse_user: str = "default"
     clickhouse_password: str = ""
     clickhouse_db: str = "ad_analytics"
-
+    clickhouse_secure: bool = False
 
 @lru_cache
 def get_settings() -> Settings:

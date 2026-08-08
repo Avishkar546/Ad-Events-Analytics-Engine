@@ -1,0 +1,29 @@
+name: Hourly Aggregation
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run aggregation
+        env:
+          CLICKHOUSE_HOST: ${{ secrets.CLICKHOUSE_HOST }}
+          CLICKHOUSE_PORT: ${{ secrets.CLICKHOUSE_PORT }}
+          CLICKHOUSE_USER: ${{ secrets.CLICKHOUSE_USER }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+          CLICKHOUSE_DB: ${{ secrets.CLICKHOUSE_DB }}
+          CLICKHOUSE_SECURE: "true"
+        run: python -m app.workers.run_once
