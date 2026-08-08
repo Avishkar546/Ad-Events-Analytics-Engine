@@ -17,7 +17,11 @@ from app.services.spend_query_service import query_spend, query_total_spend, val
 router = APIRouter()
 
 
-@router.get("/advertisers/{advertiser_id}/spend", response_model=SpendResponse)
+@router.get(
+    "/advertisers/{advertiser_id}/spend",
+    response_model=SpendResponse,
+    response_model_exclude_none=True,
+)
 def get_spend(
     advertiser_id: int,
     from_: datetime | None = Query(None, alias="from"),

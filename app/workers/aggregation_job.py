@@ -27,22 +27,34 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.core.logging import configure_logging, get_logger
 from app.db.clickhouse import get_client
 from app.services.aggregation_service import run_aggregation_job
+from app.services.job_run_logger import log_job_run
 
 configure_logging()
 logger = get_logger(__name__)
 
 RUN_INTERVAL_HOURS = 1
+JOB_NAME = "ad_spend_aggregation"
 
 
 def _run_once() -> None:
     client = get_client()
-    summary = run_aggregation_job(client)
-    logger.info(
-        "Aggregation run complete: %d advertiser(s) processed in %.2fs (%s)",
-        summary.advertisers_processed,
-        summary.duration_seconds,
-        summary.advertiser_ids,
-    )
+    started_at = datetime.now(timezone.utc)
+    try:
+        summary = run_aggregation_job(client)
+        finished_at = datetime.now(timezone.utc)
+        log_job_run(
+            client, JOB_NAME, started_at, finished_at, summary.advertisers_processed, "success"
+        )
+        logger.info(
+            "Aggregation run complete: %d advertiser(s) processed in %.2fs (%s)",
+            summary.advertisers_processed,
+            summary.duration_seconds,
+            summary.advertiser_ids,
+        )
+    except Exception as exc:
+        finished_at = datetime.now(timezone.utc)
+        log_job_run(client, JOB_NAME, started_at, finished_at, 0, "failed", str(exc))
+        logger.exception("Aggregation run failed")
 
 
 def main() -> None:
