@@ -17,4 +17,5 @@ def get_client():
         username=settings.clickhouse_user,
         password=settings.clickhouse_password,
         database=settings.clickhouse_db,
+        secure=settings.clickhouse_secure,
     )
