@@ -19,12 +19,13 @@ def test_all_migrations_apply_cleanly(chdb_raw_client):
         "0006_create_advertiser_budgets",
         "0007_create_budgets_latest_view",
         "0008_improve_spend_agg_version_precision",
+        "0009_create_job_runs"
     ]
 
 
 def test_migrations_are_idempotent(chdb_raw_client):
     first_run = run_migrations(chdb_raw_client, MIGRATIONS_DIR)
-    assert len(first_run) == 8
+    assert len(first_run) == 9
 
     second_run = run_migrations(chdb_raw_client, MIGRATIONS_DIR)
     assert second_run == []  # nothing pending — this is what makes rerunning safe on every deploy
