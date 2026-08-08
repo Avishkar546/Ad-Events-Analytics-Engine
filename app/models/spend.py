@@ -5,10 +5,9 @@ from pydantic import BaseModel
 
 class SpendRow(BaseModel):
     """
-    One row of the spend query result. The group_by dimension fields
-    (campaign_id, category, device) are optional because which ones are
-    present depends on what the caller asked to group by — see
-    spend_query_service.query_spend for how this gets built.
+    campaign_id/category/device are None when that dimension wasn't
+    requested via group_by — the row is a total across that dimension,
+    not attributable to one value.
     """
 
     campaign_id: int | None = None

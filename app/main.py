@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import health, ingest, spend
+from app.api.routes import health, ingest, jobs, spend
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 
@@ -34,3 +34,4 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(ingest.router)
 app.include_router(spend.router)
+app.include_router(jobs.router)
